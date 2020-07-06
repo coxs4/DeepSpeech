@@ -8,11 +8,12 @@ import tensorflow.compat.v1 as tfv1
 from attrdict import AttrDict
 from xdg import BaseDirectory as xdg
 
-from .flags import FLAGS
+from .flags import FLAGS, create_flags
 from .gpu import get_available_gpus
 from .logging import log_error, log_warn
 from .text import Alphabet, UTF8Alphabet
 from .helpers import parse_file_size
+
 
 class ConfigSingleton:
     _config = None
@@ -25,7 +26,8 @@ class ConfigSingleton:
         return ConfigSingleton._config[name]
 
 
-Config = ConfigSingleton() # pylint: disable=invalid-name
+Config = ConfigSingleton()  # pylint: disable=invalid-name
+
 
 def initialize_globals():
     c = AttrDict()
@@ -83,10 +85,10 @@ def initialize_globals():
     # doc/Geometry.md
 
     # Number of MFCC features
-    c.n_input = 26 # TODO: Determine this programmatically from the sample rate
+    c.n_input = 26  # TODO: Determine this programmatically from the sample rate
 
     # The number of frames in the context
-    c.n_context = 9 # TODO: Determine the optimal value using a validation data set
+    c.n_context = 9  # TODO: Determine the optimal value using a validation data set
 
     # Number of units in hidden layers
     c.n_hidden = FLAGS.n_hidden
@@ -104,7 +106,7 @@ def initialize_globals():
     c.n_hidden_3 = c.n_cell_dim
 
     # Units in the sixth layer = number of characters in the target language plus one
-    c.n_hidden_6 = c.alphabet.size() + 1 # +1 for CTC blank label
+    c.n_hidden_6 = c.alphabet.size() + 1  # +1 for CTC blank label
 
     # Size of audio window in samples
     if (FLAGS.feature_win_len * FLAGS.audio_sample_rate) % 1000 != 0:
@@ -148,4 +150,4 @@ def initialize_globals():
     if not FLAGS.load_checkpoint_dir:
         FLAGS.load_checkpoint_dir = FLAGS.checkpoint_dir
 
-    ConfigSingleton._config = c # pylint: disable=protected-access
+    ConfigSingleton._config = c  # pylint: disable=protected-access

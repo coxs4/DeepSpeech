@@ -5,19 +5,23 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import json
+
+from numpy.ma.bench import timer
+from opt_einsum import paths
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
-import tensorflow.compat.v1.logging as tflogging
-tflogging.set_verbosity(tflogging.ERROR)
 import logging
 logging.getLogger('sox').setLevel(logging.ERROR)
 import glob
+import argparse
 
-from deepspeech_training.util.audio import AudioFile
-from deepspeech_training.util.config import Config, initialize_globals
-from deepspeech_training.util.feeding import split_audio_file
-from deepspeech_training.util.flags import create_flags, FLAGS
-from deepspeech_training.util.logging import log_error, log_info, log_progress, create_progressbar
+from deepspeech import Model, version
+from .deepspeech_training.util.audio import AudioFile
+from .deepspeech_training.util.config import Config, initialize_globals
+from .deepspeech_training.util.feeding import split_audio_file
+from .deepspeech_training.util.flags import create_flags, FLAGS
+from .deepspeech_training.util.logging import log_error, log_info, log_progress, create_progressbar
 from ds_ctcdecoder import ctc_beam_search_decoder_batch, Scorer
 from multiprocessing import Process, cpu_count
 
@@ -28,8 +32,8 @@ def fail(message, code=1):
 
 
 def transcribe_file(audio_path, tlog_path):
-    from deepspeech_training.train import create_model  # pylint: disable=cyclic-import,import-outside-toplevel
-    from deepspeech_training.util.checkpoints import load_graph_for_evaluation
+    from .deepspeech_training.train import create_model  # pylint: disable=cyclic-import,import-outside-toplevel
+    from .deepspeech_training.util.checkpoints import load_graph_for_evaluation
     initialize_globals()
     scorer = Scorer(FLAGS.lm_alpha, FLAGS.lm_beta, FLAGS.scorer_path, Config.alphabet)
     try:
@@ -84,7 +88,33 @@ def transcribe_many(src_paths,dst_paths):
 
 
 def transcribe_one(src_path, dst_path):
-    transcribe_file(src_path, dst_path)
+    create_flags()
+    tf.app.flags.DEFINE_string('src', '', 'Source path to an audio file or directory or catalog file.'
+                                          'Catalog files should be formatted from DSAlign. A directory will'
+                                          'be recursively searched for audio. If --dst not set, transcription logs (.tlog) will be '
+                                          'written in-place using the source filenames with '
+                                          'suffix ".tlog" instead of ".wav".')
+    tf.app.flags.DEFINE_string('dst', '', 'path for writing the transcription log or logs (.tlog). '
+                                          'If --src is a directory, this one also has to be a directory '
+                                          'and the required sub-dir tree of --src will get replicated.')
+    tf.app.flags.DEFINE_boolean('recursive', False, 'scan dir of audio recursively')
+    tf.app.flags.DEFINE_boolean('force', False, 'Forces re-transcribing and overwriting of already existing '
+                                                'transcription logs (.tlog)')
+    tf.app.flags.DEFINE_integer('vad_aggressiveness', 3, 'How aggressive (0=lowest, 3=highest) the VAD should '
+                                                         'split audio')
+    tf.app.flags.DEFINE_integer('batch_size', 40, 'Default batch size')
+    tf.app.flags.DEFINE_float('outlier_duration_ms', 10000,
+                              'Duration in ms after which samples are considered outliers')
+    tf.app.flags.DEFINE_integer('outlier_batch_size', 1, 'Batch size for duration outliers (defaults to 1)')
+
+    # Transcribe one file
+    if os.path.isfile(src_path):
+        transcribe_file(src_path, dst_path)
+    elif os.path.isdir(os.path.dirname(dst_path)):
+        transcribe_file(src_path, dst_path)
+    else:
+        fail('Missing destination directory')
+
     log_info('Transcribed file "{}" to "{}"'.format(src_path, dst_path))
 
 
@@ -147,22 +177,5 @@ def main(_):
                 transcribe_many(wav_paths,dst_paths)
 
 
-if __name__ == '__main__':
-    create_flags()
-    tf.app.flags.DEFINE_string('src', '', 'Source path to an audio file or directory or catalog file.'
-                                          'Catalog files should be formatted from DSAlign. A directory will'
-                                          'be recursively searched for audio. If --dst not set, transcription logs (.tlog) will be '
-                                          'written in-place using the source filenames with '
-                                          'suffix ".tlog" instead of ".wav".')
-    tf.app.flags.DEFINE_string('dst', '', 'path for writing the transcription log or logs (.tlog). '
-                                          'If --src is a directory, this one also has to be a directory '
-                                          'and the required sub-dir tree of --src will get replicated.')
-    tf.app.flags.DEFINE_boolean('recursive', False, 'scan dir of audio recursively')
-    tf.app.flags.DEFINE_boolean('force', False, 'Forces re-transcribing and overwriting of already existing '
-                                                'transcription logs (.tlog)')
-    tf.app.flags.DEFINE_integer('vad_aggressiveness', 3, 'How aggressive (0=lowest, 3=highest) the VAD should '
-                                                         'split audio')
-    tf.app.flags.DEFINE_integer('batch_size', 40, 'Default batch size')
-    tf.app.flags.DEFINE_float('outlier_duration_ms', 10000, 'Duration in ms after which samples are considered outliers')
-    tf.app.flags.DEFINE_integer('outlier_batch_size', 1, 'Batch size for duration outliers (defaults to 1)')
-    tf.app.run(main)
+# if __name__ == '__main__':
+#
