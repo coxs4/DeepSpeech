@@ -1,4 +1,4 @@
-Contact/Getting Help
+Contact/Getting Help For Mozilla's STT, DeepSpeech, Embedded Within A-Seeker
 ====================
 
 There are several ways to contact us or to get help:
