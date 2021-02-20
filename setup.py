@@ -50,28 +50,30 @@ def main():
         version = fin.read().strip()
 
     install_requires_base = [
-        'tensorflow == 1.15.2',
-        'numpy',
-        'progressbar2',
-        'six',
-        'pyxdg',
-        'attrdict',
         'absl-py',
-        'semver',
-        'opuslib == 2.0.0',
-        'optuna',
-        'sox',
+        'attrdict',
         'bs4',
+        'numpy',
+        'optuna',
+        'opuslib == 2.0.0',
         'pandas',
+        'progressbar2',
+        'pyogg >= 0.6.14a1',
+        'pyxdg',
+        'resampy >= 0.2.2',
         'requests',
-        'numba == 0.47.0', # ships py3.5 wheel
-        'llvmlite == 0.31.0', # for numba==0.47.0
-        'librosa',
+        'semver',
+        'six',
+        'sox',
         'soundfile',
     ]
 
     decoder_pypi_dep = [
         'ds_ctcdecoder == {}'.format(version)
+    ]
+
+    tensorflow_pypi_dep = [
+        'tensorflow == 1.15.4'
     ]
 
     # Due to pip craziness environment variables are the only consistent way to
@@ -87,12 +89,17 @@ def main():
     else:
         install_requires = install_requires_base + decoder_pypi_dep
 
+    if os.environ.get('DS_NOTENSORFLOW', ''):
+        install_requires = install_requires
+    else:
+        install_requires = install_requires + tensorflow_pypi_dep
+
     setup(
         name='deepspeech_training',
         version=version,
-        description='Training code for mozilla DeepSpeech',
+        description='Training code for DeepSpeech',
         url='https://github.com/mozilla/DeepSpeech',
-        author='Mozilla',
+        author='DeepSpeech authors',
         license='MPL-2.0',
         # Classifiers help users find your project by categorizing it.
         #
